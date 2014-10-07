@@ -13,7 +13,13 @@ TARGETS := linux linux-dtb
 
 CONFIG     := odroidxu_sel4vm_defconfig
 LINUX_FILE := Image
+ifeq ($(CONFIG_PLAT_EXYNOS5250),y)
+DTB_FILE   := exynos5250-arndale-sel4vm.dtb
+else ifeq ($(CONFIG_PLAT_EXYNOS5410),y)
 DTB_FILE   := exynos5410-odroidxu-sel4vm.dtb
+else
+$(error Unknown platform)
+endif
 
 LINUX_DIR=$(SOURCE_DIR)/linux
 
@@ -39,7 +45,6 @@ $(SEL4_BINDIR)/linux: $(BUILD_DIR)/arch/arm/boot/$(LINUX_FILE)
 	$(call cp_file,$<,$@)
 
 $(SEL4_BINDIR)/linux-dtb: $(BUILD_DIR)/arch/arm/boot/dts/$(DTB_FILE)
-	echo "HELLO dtb"
 	$(Q)mkdir -p $(dir $@)
 	$(call cp_file,$<,$@)
 
