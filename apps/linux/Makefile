@@ -36,7 +36,7 @@ $(BUILD_DIR)/.config:
 	@echo "Configuring Linux..."
 	$(MAKE) -C $(LINUX_DIR) O=$(BUILD_DIR) $(CONFIG)
 
-$(BUILD_DIR)/arch/arm/boot/$(LINUX_FILE) $(BUILD_DIR)/arch/arm/boot/dts/$(DEVICE_TREE): $(BUILD_DIR)/.config .FORCE
+$(BUILD_DIR)/arch/arm/boot/$(LINUX_FILE) $(BUILD_DIR)/arch/arm/boot/dts/$(DTB_FILE): $(BUILD_DIR)/.config .FORCE
 	@echo "Building Linux..."
 	$(MAKE) -C $(LINUX_DIR) O=$(BUILD_DIR) -j8
 
