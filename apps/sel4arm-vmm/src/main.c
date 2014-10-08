@@ -41,6 +41,10 @@
 #define VM_LINUX_DTB_NAME   "linux-dtb"
 #define VM_NAME             "Linux"
 
+#ifndef DEBUG_BUILD
+#define seL4_DebugHalt() do{ printf("Halting...\n"); while(1); } while(0)
+#endif
+
 MUSLC_SYSCALL_TABLE;
 
 vka_t _vka;
