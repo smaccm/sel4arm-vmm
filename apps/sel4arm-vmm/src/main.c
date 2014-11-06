@@ -169,10 +169,54 @@ vmm_init(void)
     return 0;
 }
 
+
+static void
+map_unity_ram(vm_t* vm)
+{
+    seL4_BootInfo* bi;
+    seL4_DeviceRegion* dr;
+    int n_dr;
+    int i;
+
+    bi = seL4_GetBootInfo();
+
+    n_dr = bi->numDeviceRegions;
+    dr = bi->deviceRegions;
+    for (i = 0; i < n_dr; i++, dr++) {
+        uint32_t start, end;
+        int bits, ncaps;
+        start = dr->basePaddr;
+        bits = dr->frameSizeBits;;
+        ncaps = dr->frames.end - dr->frames.start;
+        end = start + ((1U << bits) * ncaps);
+        if (start >= 0x40000000 && end < 0xC0000000 && bits == 21) {
+            reservation_t res;
+            vspace_t* vspace;
+            void* vaddr;
+            seL4_CPtr cap;
+            vspace = &vm->vm_vspace;
+            printf("Passthrough RAM 0x%08x-0x%08x\n", start, end);
+
+            /* Create a reservation */
+            vaddr = (void*)start;
+            res = vspace_reserve_range_at(vspace, vaddr, end - start, seL4_AllRights, 1);
+            assert(res.res != NULL);
+
+            /* Map the frames */
+            for (cap = dr->frames.start; cap < dr->frames.end; cap++, vaddr += BIT(bits)) {
+                int err;
+                err = vspace_map_pages_at_vaddr(vspace, &cap, (void*)&bits, vaddr, 1, bits, res);
+                assert(!err);
+            }
+        }
+    }
+}
+
+
 int
 main(void)
 {
-    struct vm vm;
+    vm_t vm;
     int err;
 
     SET_MUSLC_SYSCALL_TABLE;
@@ -191,6 +235,9 @@ main(void)
         seL4_DebugHalt();
         return -1;
     }
+
+    /* HACK: See if we have a "RAM device" for 1-1 mappings */
+    map_unity_ram(&vm);
 
     /* Load system images */
     printf("Loading Linux: \'%s\' dtb: \'%s\'\n", VM_LINUX_NAME, VM_LINUX_DTB_NAME);
