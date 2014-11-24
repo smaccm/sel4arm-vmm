@@ -34,10 +34,11 @@ extern char _cpio_archive[];
 extern vka_t _vka;
 extern vspace_t _vspace;
 
+
 static const struct device *linux_pt_devices[] = {
     &dev_ps_pwm_timer,
-    &dev_ps_gpio_right,
-    &dev_ps_cmu_top,
+//    &dev_ps_gpio_right,
+//    &dev_ps_cmu_top,
     &dev_ps_cmu_core,
     &dev_ps_chip_id,
     &dev_ps_cmu_cpu,
@@ -54,10 +55,10 @@ static const struct device *linux_pt_devices[] = {
     &dev_usb2_ctrl,
     &dev_ps_msh0,
     &dev_ps_msh2,
-    &dev_gpio_left,
+//    &dev_gpio_left,
     &dev_uart0,
     &dev_uart1,
-    //&dev_uart1, /* Console */
+    //&dev_uart2, /* Console */
     &dev_uart3,
     &dev_ps_tx_mixer,
     &dev_ps_hdmi0,
@@ -133,6 +134,12 @@ install_linux_devices(vm_t* vm)
     err = vm_install_vpower(vm, &vm_shutdown_cb, &pwr_token, &vm_reboot_cb, &pwr_token);
     assert(!err);
     err = vm_install_vsysreg(vm);
+    assert(!err);
+    err = vm_install_vcmu_top(vm);
+    assert(!err);
+    err = vm_install_vgpio_left(vm);
+    assert(!err);
+    err = vm_install_vgpio_right(vm);
     assert(!err);
 
     err = vm_install_passthrough_device(vm, &dev_vconsole);
