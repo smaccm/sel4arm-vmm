@@ -23,7 +23,7 @@
 #define LINUX_RAM_BASE    0x40000000
 #define LINUX_RAM_SIZE    0x40000000
 #define ATAGS_ADDR        (LINUX_RAM_BASE + 0x100)
-#define DTB_ADDR          (LINUX_RAM_BASE + 0x09000000)
+#define DTB_ADDR          (LINUX_RAM_BASE + 0x0F000000)
 
 #define MACH_TYPE_EXYNOS5410 4151
 #define MACH_TYPE_SPECIAL    ~0
@@ -34,19 +34,9 @@ extern char _cpio_archive[];
 extern vka_t _vka;
 extern vspace_t _vspace;
 
+
 static const struct device *linux_pt_devices[] = {
     &dev_ps_pwm_timer,
-    &dev_ps_gpio_right,
-    &dev_ps_alive,
-    &dev_ps_cmu_top,
-    &dev_ps_cmu_core,
-    &dev_ps_chip_id,
-    &dev_ps_cmu_cpu,
-    &dev_ps_cmu_cdrex,
-    &dev_ps_cmu_mem,
-    &dev_ps_cmu_isp,
-    &dev_ps_cmu_acp,
-    &dev_ps_sysreg,
     &dev_i2c1,
     &dev_i2c2,
     &dev_i2c4,
@@ -56,10 +46,9 @@ static const struct device *linux_pt_devices[] = {
     &dev_usb2_ctrl,
     &dev_ps_msh0,
     &dev_ps_msh2,
-    &dev_gpio_left,
     &dev_uart0,
     &dev_uart1,
-    //&dev_uart1, /* Console */
+    //&dev_uart2, /* Console */
     &dev_uart3,
     &dev_ps_tx_mixer,
     &dev_ps_hdmi0,
@@ -73,13 +62,62 @@ static const struct device *linux_pt_devices[] = {
     &dev_ps_pdma1,
     &dev_ps_mdma0,
     &dev_ps_mdma1,
+#if 1
+    &dev_gpio_left,
+    &dev_gpio_right,
+#endif
 };
+
+struct pwr_token {
+    const char* linux_bin;
+    const char* device_tree;
+} pwr_token;
+
+static void* install_linux_kernel(vm_t* vm, const char* kernel_name);
+static uint32_t install_linux_dtb(vm_t* vm, const char* dtb_name);
+
+static int
+vm_shutdown_cb(vm_t* vm, void* token)
+{
+    printf("Received shutdown from linux\n");
+    return -1;
+}
+
+static int
+vm_reboot_cb(vm_t* vm, void* token)
+{
+    struct pwr_token* pwr_token = (struct pwr_token*)token;
+    uint32_t dtb_addr;
+    void* entry;
+    int err;
+    printf("Received reboot from linux\n");
+    entry = install_linux_kernel(vm, pwr_token->linux_bin);
+    dtb_addr = install_linux_dtb(vm, pwr_token->device_tree);
+    if(entry == NULL || dtb_addr == 0){
+        printf("Failed to reload linux\n");
+        return -1;
+    }
+    err = vm_set_bootargs(vm, entry, MACH_TYPE, dtb_addr);
+    if(err){
+        printf("Failed to set boot args\n");
+        return -1;
+    }
+    err = vm_start(vm);
+    if(err){
+        printf("Failed to restart linux\n");
+        return -1;
+    }
+    printf("VM restarted\n");
+    return 0;
+}
 
 static int
 install_linux_devices(vm_t* vm)
 {
     int err;
     int i;
+    struct gpio_device* gpio_dev;
+    struct clock_device* clock_dev;
     /* Install virtual devices */
     err = vm_install_vgic(vm);
     assert(!err);
@@ -89,6 +127,32 @@ install_linux_devices(vm_t* vm)
     assert(!err);
     err = vm_install_vmct(vm);
     assert(!err);
+    err = vm_install_vpower(vm, &vm_shutdown_cb, &pwr_token, &vm_reboot_cb, &pwr_token);
+    assert(!err);
+    err = vm_install_vsysreg(vm);
+    assert(!err);
+
+    gpio_dev = vm_install_ac_gpio(vm, VACDEV_DEFAULT_ALLOW, VACDEV_REPORT_AND_MASK);
+    assert(gpio_dev);
+    clock_dev = vm_install_ac_clock(vm, VACDEV_DEFAULT_ALLOW, VACDEV_REPORT_AND_MASK);
+    assert(clock_dev);
+
+#if 0
+    vm_gpio_restrict(gpio_dev, GPIOID(GPA1, 0));
+    vm_gpio_restrict(gpio_dev, GPIOID(GPA1, 1));
+    vm_gpio_restrict(gpio_dev, GPIOID(GPA1, 2));
+    vm_gpio_restrict(gpio_dev, GPIOID(GPA1, 3));
+    vm_gpio_restrict(gpio_dev, GPIOID(GPA1, 4));
+    vm_gpio_restrict(gpio_dev, GPIOID(GPA1, 5));
+    vm_gpio_restrict(gpio_dev, GPIOID(GPA1, 6));
+    vm_gpio_restrict(gpio_dev, GPIOID(GPA1, 7));
+#endif
+
+    vm_clock_restrict(clock_dev, CLK_UART0);
+    vm_clock_restrict(clock_dev, CLK_UART1);
+    vm_clock_restrict(clock_dev, CLK_UART3);
+    vm_clock_restrict(clock_dev, CLK_I2C0);
+    vm_clock_restrict(clock_dev, CLK_SPI1);
 
     err = vm_install_passthrough_device(vm, &dev_vconsole);
     assert(!err);
@@ -172,6 +236,9 @@ load_linux(vm_t* vm, const char* kernel_name, const char* dtb_name)
     void* entry;
     uint32_t dtb;
     int err;
+
+    pwr_token.linux_bin = kernel_name;
+    pwr_token.device_tree = dtb_name;
 
     /* Install devices */
     err = install_linux_devices(vm);
