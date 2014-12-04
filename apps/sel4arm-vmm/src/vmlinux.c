@@ -62,6 +62,10 @@ static const struct device *linux_pt_devices[] = {
     &dev_ps_pdma1,
     &dev_ps_mdma0,
     &dev_ps_mdma1,
+#if 1
+    &dev_gpio_left,
+    &dev_gpio_right,
+#endif
 };
 
 struct pwr_token {
@@ -127,14 +131,25 @@ install_linux_devices(vm_t* vm)
     assert(!err);
     err = vm_install_vsysreg(vm);
     assert(!err);
+
     gpio_dev = vm_install_ac_gpio(vm, VACDEV_DEFAULT_ALLOW, VACDEV_REPORT_AND_MASK);
     assert(gpio_dev);
     clock_dev = vm_install_ac_clock(vm, VACDEV_DEFAULT_ALLOW, VACDEV_REPORT_AND_MASK);
     assert(clock_dev);
 
+#if 0
+    vm_gpio_restrict(gpio_dev, GPIOID(GPA1, 0));
+    vm_gpio_restrict(gpio_dev, GPIOID(GPA1, 1));
+    vm_gpio_restrict(gpio_dev, GPIOID(GPA1, 2));
+    vm_gpio_restrict(gpio_dev, GPIOID(GPA1, 3));
+    vm_gpio_restrict(gpio_dev, GPIOID(GPA1, 4));
+    vm_gpio_restrict(gpio_dev, GPIOID(GPA1, 5));
+    vm_gpio_restrict(gpio_dev, GPIOID(GPA1, 6));
+    vm_gpio_restrict(gpio_dev, GPIOID(GPA1, 7));
+#endif
+
     vm_clock_restrict(clock_dev, CLK_UART0);
     vm_clock_restrict(clock_dev, CLK_UART1);
-    vm_clock_restrict(clock_dev, CLK_UART2);
     vm_clock_restrict(clock_dev, CLK_UART3);
     vm_clock_restrict(clock_dev, CLK_I2C0);
     vm_clock_restrict(clock_dev, CLK_SPI1);
